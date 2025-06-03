@@ -4,6 +4,7 @@ class Conversion {
         this.photoData = null;
         this.cameras = [];
         this.selectedCamera = null;
+        this.selectedLens = null;
     }
 
     /**
@@ -40,6 +41,20 @@ class Conversion {
             this.selectedCamera = this.cameras[index];
             return this.selectedCamera;
         }
+        return null;
+    }
+
+    /**
+     * Select a lens for the current camera
+     * @param {number} index - Lens index in the camera's lenses array
+     */
+    selectLens(index) {
+        if (this.selectedCamera && this.selectedCamera.lenses && 
+            index >= 0 && index < this.selectedCamera.lenses.length) {
+            this.selectedLens = this.selectedCamera.lenses[index];
+            return this.selectedLens;
+        }
+        this.selectedLens = null;
         return null;
     }
 

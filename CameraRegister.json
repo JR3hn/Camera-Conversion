@@ -23,6 +23,47 @@
         "fixed": "1.7",
         "values": ["1.7"]
       }
+    },
+
+    {
+      "brand": "Nikon",
+      "model": "D5500",
+      "type": "DSLR",
+      "sensor": {
+        "type": "CMOS",
+        "size": "APS-C",
+        "resolution": "24.2 MP"
+      },
+      "iso": {
+        "min": 100,
+        "max": 25600,
+        "values": [100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600]
+      },
+      "shutterSpeed": {
+        "fastest": "1/4000",
+        "slowest": "30",
+        "values": ["30", "1/30", "1/60", "1/120", "1/240", "1/500", "1/1000", "1/2000", "1/4000"]
+      },
+      "lenses": [
+        {
+          "name": "Nikkor 18-55mm f/3.5-5.6G VR",
+          "focalLengthRange": "18-55mm",
+          "aperture": {
+            "min": "3.5",
+            "max": "5.6", 
+            "values": ["3.5", "4.0", "4.5", "5.0", "5.6", "8.0", "11", "16", "22"]
+          }
+        },
+        {
+          "name": "Nikkor 50mm f/1.8G",
+          "focalLengthRange": "50mm",
+          "aperture": {
+            "min": "1.8",
+            "max": "16",
+            "values": ["1.8", "2.0", "2.8", "4.0", "5.6", "8.0", "11", "16", "22"]
+          }
+        }
+      ]
     }
   ]
 }

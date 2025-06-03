@@ -69,6 +69,13 @@
             <option value="" disabled selected>Loading cameras...</option>
         </select>
     </div>
+
+    <div class="control-container" id="lensSelectContainer" style="display: none;">
+        <label for="lensSelect">Select Lens:</label>
+        <select id="lensSelect">
+            <option value="" disabled selected>Choose a lens</option>
+        </select>
+    </div>
     
     <div class="camera-specs" id="cameraSpecs">
         <h3>Camera Specifications</h3>
@@ -134,6 +141,8 @@
             const conversionSettings = document.getElementById('conversionSettings');
             const conversionResult = document.getElementById('conversionResult');
             const resultContent = document.getElementById('resultContent');
+            const lensSelectContainer = document.getElementById('lensSelectContainer');
+            const lensSelect = document.getElementById('lensSelect');
             
             // Target setting elements
             const targetAperture = document.getElementById('targetAperture');
@@ -143,6 +152,8 @@
             
             // Create Conversion instance
             const conversion = new Conversion();
+
+            let selectedLens = null;
             
             // Load cameras from JSON
             try {
@@ -169,7 +180,36 @@
                     const selectedIndex = parseInt(cameraSelect.value, 10);
                     const selectedCamera = conversion.selectCamera(selectedIndex);
                     displayCameraSpecs(selectedCamera, cameraSpecs);
-                    populateTargetSettings(selectedCamera);
+
+                    // Show/hide lens selection based on camera type
+                    if (selectedCamera.type === "DSLR" && selectedCamera.lenses) {
+                        populateLensDropdown(selectedCamera.lenses, lensSelect);
+                        lensSelectContainer.style.display = 'block';
+                        // Reset selected lens
+                        selectedLens = null;
+                        // Hide conversion settings until a lens is selected
+                        conversionSettings.style.display = 'none';
+                    } else {
+                        lensSelectContainer.style.display = 'none';
+                        populateTargetSettings(selectedCamera);
+                        conversionSettings.style.display = 'block';
+                    }
+                });
+
+                // Add lens selection event listener
+                lensSelect.addEventListener('change', () => {
+                    const selectedCamera = conversion.selectedCamera;
+                    const lensIndex = parseInt(lensSelect.value, 10);
+
+                    if (selectedCamera && selectedCamera.lenses && lensIndex >= 0) {
+                        selectedLens = selectedCamera.lenses[lensIndex];
+                        // Update the camera specs display to include lens info
+                        displayCameraSpecs(selectedCamera, cameraSpecs, selectedLens);
+                        // Populate target settings based on the selected lens
+                        populateTargetSettingsWithLens(selectedCamera, selectedLens);
+                        // Show conversion settings now that a lens is selected
+                        conversionSettings.style.display = 'block';
+                    }
                 });
                 
             } catch (error) {
@@ -260,6 +300,20 @@
                 }
             });
             
+            // Helper function to populate lens dropdown
+            function populateLensDropdown(lenses, element) {
+                // Clear previous options
+                element.innerHTML = '<option value="" disabled selected>Choose a lens</option>';
+
+                // Add options for each lens
+                lenses.forEach((lens, index) => {
+                    const option = document.createElement('option');
+                    option.value = index;
+                    option.textContent = lens.name;
+                    element.appendChild(option);
+                });
+            }
+
             // Helper function to populate target settings dropdowns
             function populateTargetSettings(camera) {
                 if (!camera) return;
@@ -293,31 +347,76 @@
                     targetIso.appendChild(option);
                 });
             }
+
+            function populateTargetSettingsWithLens(camera, lens) {
+                if (!camera || !lens) return;
+
+                // Clear previous options
+                targetAperture.innerHTML = '';
+                targetShutter.innerHTML = '';
+                targetIso.innerHTML = '';
+
+                // Add aperture options from the lens
+                lens.aperture.values.forEach(value => {
+                    const option = document.createElement('option');
+                    option.value = value;
+                    option.textContent = `f/${value}`;
+                    targetAperture.appendChild(option);
+                });
+
+                // Add shutter speed options from the camera
+                camera.shutterSpeed.values.forEach(value => {
+                    const option = document.createElement('option');
+                    option.value = value;
+                    option.textContent = formatShutterSpeed(value);
+                    targetShutter.appendChild(option);
+                });
+
+                // Add ISO options from the camera
+                camera.iso.values.forEach(value => {
+                    const option = document.createElement('option');
+                    option.value = value;
+                    option.textContent = value;
+                    targetIso.appendChild(option);
+                });
+            }
             
             // Helper function to display camera specifications
-            function displayCameraSpecs(camera, element) {
+            function displayCameraSpecs(camera, element, lens = null) {
                 if (!camera) {
                     element.innerHTML = '<p>No camera selected</p>';
                     return;
                 }
-                
+
                 let html = `
                     <h3>${camera.brand} ${camera.model}</h3>
                     <p><label>Type:</label> ${camera.type}</p>
                     <p><label>Sensor:</label> ${camera.sensor.type}, ${camera.sensor.size}, ${camera.sensor.resolution}</p>
                     <p><label>ISO Range:</label> ${camera.iso.min} - ${camera.iso.max}</p>
-                    <p><label>Shutter Speed:</label> ${camera.shutterSpeed.fastest} - ${camera.shutterSpeed.slowest}</p>
+                    <p><label>Shutter Speed:</label> ${camera.shutterSpeed.slowest} - ${camera.shutterSpeed.fastest}</p>
                 `;
-                
-                if (camera.aperture.fixed) {
-                    html += `<p><label>Aperture:</label> Fixed at f/${camera.aperture.fixed}</p>`;
-                } else {
-                    html += `<p><label>Aperture Range:</label> f/${camera.aperture.min} - f/${camera.aperture.max}</p>`;
+
+                if (lens) {
+                    html += `
+                        <h4>Selected Lens: ${lens.name}</h4>
+                        <p><label>Focal Length:</label> ${lens.focalLengthRange}</p>
+                        <p><label>Aperture Range:</label> f/${lens.aperture.min} - f/${lens.aperture.max}</p>
+                    `;
+                } else if (camera.aperture) {
+                    if (camera.aperture.fixed) {
+                        html += `<p><label>Aperture:</label> Fixed at f/${camera.aperture.fixed}</p>`;
+                    } else if (camera.aperture.min && camera.aperture.max) {
+                        html += `<p><label>Aperture Range:</label> f/${camera.aperture.min} - f/${camera.aperture.max}</p>`;
+                    }
                 }
-                
+
+                if (camera.type === "DSLR" && camera.lenses && !lens) {
+                    html += `<p><em>Please select a lens to see complete specifications</em></p>`;
+                }
+
                 element.innerHTML = html;
             }
-            
+
             // Helper function to format shutter speed for display
             function formatShutterSpeed(speed) {
                 if (typeof speed === 'number') {

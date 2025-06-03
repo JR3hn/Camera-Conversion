@@ -1,22 +1,9 @@
 class Conversion {
     constructor() {
         this.metadata = null;
-        this.videoElement = null;
-        this.canvasElement = null;
-        this.stream = null;
         this.photoData = null;
         this.cameras = [];
         this.selectedCamera = null;
-    }
-    
-    /**
-     * Initialize camera and UI elements
-     * @param {HTMLVideoElement} videoElement - Video element for camera preview
-     * @param {HTMLCanvasElement} canvasElement - Canvas for capturing photos
-     */
-    initCamera(videoElement, canvasElement) {
-        this.videoElement = videoElement;
-        this.canvasElement = canvasElement;
     }
 
     /**
@@ -57,68 +44,15 @@ class Conversion {
     }
 
     /**
-     * Start the camera stream
-     * @returns {Promise} - Resolves when camera is ready
+     * Process an uploaded photo file
+     * @param {File} file - The uploaded image file
+     * @returns {string} - Object URL for the image
      */
-    async startCamera() {
-        try {
-            // Request camera access with preferred settings for mobile
-            const constraints = {
-                video: {
-                    facingMode: 'environment', // Use back camera on mobile devices
-                    width: { ideal: 1920 },
-                    height: { ideal: 1080 }
-                }
-            };
-            
-            this.stream = await navigator.mediaDevices.getUserMedia(constraints);
-            this.videoElement.srcObject = this.stream;
-            
-            return new Promise((resolve) => {
-                this.videoElement.onloadedmetadata = () => {
-                    this.videoElement.play();
-                    resolve();
-                };
-            });
-        } catch (error) {
-            console.error('Error starting camera:', error);
-            throw error;
-        }
+    processUploadedFile(file) {
+        this.photoData = file;
+        return URL.createObjectURL(file);
     }
 
-    /**
-     * Stop the camera stream
-     */
-    stopCamera() {
-        if (this.stream) {
-            this.stream.getTracks().forEach(track => track.stop());
-            this.stream = null;
-            this.videoElement.srcObject = null;
-        }
-    }
-    
-    /**
-     * Capture photo from current video frame
-     * @returns {Promise<Blob>} - Promise resolving with image blob
-     */
-    capturePhoto() {
-        const context = this.canvasElement.getContext('2d');
-        
-        // Set canvas dimensions to match video
-        this.canvasElement.width = this.videoElement.videoWidth;
-        this.canvasElement.height = this.videoElement.videoHeight;
-        
-        // Draw the current video frame to the canvas
-        context.drawImage(this.videoElement, 0, 0);
-        
-        // Convert canvas content to blob
-        return new Promise((resolve) => {
-            this.canvasElement.toBlob(blob => {
-                this.photoData = blob;
-                resolve(blob);
-            }, 'image/jpeg', 0.95);
-        });
-    }
     
     /**
      * Extract metadata from the captured photo
@@ -172,6 +106,29 @@ class Conversion {
      * @returns {Object} - Structured metadata
      */
     processExifData(exifData) {
+        console.log('Processing EXIF data:', exifData);
+        
+        // Extract and format the aperture value
+        let fNumber = null;
+        if (exifData.FNumber) {
+            if (Array.isArray(exifData.FNumber.value) && exifData.FNumber.value.length === 2) {
+                fNumber = exifData.FNumber.value[0] / exifData.FNumber.value[1];
+            } else {
+                fNumber = exifData.FNumber.description || exifData.FNumber.value;
+            }
+        }
+        
+        // Extract and format the exposure time
+        let exposureTime = null;
+        if (exifData.ExposureTime) {
+            if (typeof exifData.ExposureTime.description === 'string') {
+                exposureTime = exifData.ExposureTime.description;
+            } else if (Array.isArray(exifData.ExposureTime.value) && exifData.ExposureTime.value.length === 2) {
+                const [numerator, denominator] = exifData.ExposureTime.value;
+                exposureTime = `${numerator}/${denominator}`;
+            }
+        }
+        
         return {
             device: {
                 make: this.getExifValue(exifData, 'Make'),
@@ -179,19 +136,20 @@ class Conversion {
                 software: this.getExifValue(exifData, 'Software')
             },
             image: {
-                width: this.getExifValue(exifData, 'ImageWidth') || this.canvasElement.width,
-                height: this.getExifValue(exifData, 'ImageHeight') || this.canvasElement.height,
+                width: this.getExifValue(exifData, 'ImageWidth') || 
+                       this.getExifValue(exifData, 'ExifImageWidth'),
+                height: this.getExifValue(exifData, 'ImageHeight') || 
+                        this.getExifValue(exifData, 'ExifImageHeight'),
                 orientation: this.getExifValue(exifData, 'Orientation'),
                 created: this.getExifValue(exifData, 'DateTimeOriginal') || new Date().toISOString()
             },
             camera: {
-                exposureTime: this.getExifValue(exifData, 'ExposureTime'),
-                fNumber: this.getExifValue(exifData, 'FNumber'),
+                exposureTime: exposureTime,
+                fNumber: fNumber,
                 iso: this.getExifValue(exifData, 'ISOSpeedRatings')
             }
         };
     }
-    
     /**
      * Safely get EXIF value 
      * @param {Object} exifData - EXIF data object

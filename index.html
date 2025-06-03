@@ -86,15 +86,10 @@
         <p>Please select a camera from the dropdown menu</p>
     </div>
     
-    <div class="camera-container">
-        <video id="videoElement" autoplay playsinline></video>
-        <canvas id="canvasElement"></canvas>
-    </div>
-    
-    <div class="button-container">
-        <button id="startCameraBtn">Start Camera</button>
-        <button id="capturePhotoBtn" disabled>Capture Photo</button>
-        <button id="extractMetadataBtn" disabled>Extract Metadata</button>
+    <div class="upload-container">
+        <input type="file" id="photoInput" accept="image/*" capture="environment" style="display: none;">
+        <button id="uploadPhotoBtn" class="camera-button">Take Photo or Upload</button>
+        <img id="previewImage" style="max-width: 100%; margin-top: 15px; display: none;">
     </div>
     
     <div id="metadataDisplay">No metadata available yet.</div>
@@ -138,8 +133,9 @@
             // Get UI elements
             const videoElement = document.getElementById('videoElement');
             const canvasElement = document.getElementById('canvasElement');
-            const startCameraBtn = document.getElementById('startCameraBtn');
-            const capturePhotoBtn = document.getElementById('capturePhotoBtn');
+            const photoInput = document.getElementById('photoInput');
+            const uploadPhotoBtn = document.getElementById('uploadPhotoBtn');
+            const previewImage = document.getElementById('previewImage');
             const extractMetadataBtn = document.getElementById('extractMetadataBtn');
             const metadataDisplay = document.getElementById('metadataDisplay');
             const cameraSelect = document.getElementById('cameraSelect');
@@ -191,36 +187,22 @@
                 cameraSelect.innerHTML = '<option value="" disabled selected>Error loading cameras</option>';
             }
             
-            // Set up button event listeners
-            startCameraBtn.addEventListener('click', async () => {
-                try {
-                    await conversion.startCamera();
-                    startCameraBtn.disabled = true;
-                    capturePhotoBtn.disabled = false;
-                } catch (error) {
-                    alert('Error starting camera: ' + error.message);
-                }
+            // Add this event listener:
+            uploadPhotoBtn.addEventListener('click', () => {
+                photoInput.click();
             });
             
-            capturePhotoBtn.addEventListener('click', async () => {
-                try {
-                    await conversion.capturePhoto();
+            photoInput.addEventListener('change', (event) => {
+                if (event.target.files && event.target.files[0]) {
+                    const file = event.target.files[0];
+                    const imgURL = conversion.processUploadedFile(file);
+                    
+                    // Display the image
+                    previewImage.src = imgURL;
+                    previewImage.style.display = 'block';
+                    
+                    // Enable metadata extraction
                     extractMetadataBtn.disabled = false;
-                    
-                    // Display the captured image
-                    const imgURL = URL.createObjectURL(conversion.photoData);
-                    const img = document.createElement('img');
-                    img.src = imgURL;
-                    img.style.width = '100%';
-                    
-                    // Clear previous image if any
-                    while (metadataDisplay.firstChild) {
-                        metadataDisplay.removeChild(metadataDisplay.firstChild);
-                    }
-                    
-                    metadataDisplay.appendChild(img);
-                } catch (error) {
-                    alert('Error capturing photo: ' + error.message);
                 }
             });
             

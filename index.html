@@ -11,17 +11,6 @@
             margin: 0 auto;
             padding: 20px;
         }
-        .camera-container {
-            position: relative;
-            margin-bottom: 20px;
-        }
-        #videoElement {
-            width: 100%;
-            background-color: #333;
-        }
-        #canvasElement {
-            display: none;
-        }
         .button-container, .control-container {
             margin: 10px 0;
         }
@@ -86,10 +75,14 @@
         <p>Please select a camera from the dropdown menu</p>
     </div>
     
-    <div class="upload-container">
+    <div class="photo-container">
         <input type="file" id="photoInput" accept="image/*" capture="environment" style="display: none;">
-        <button id="uploadPhotoBtn" class="camera-button">Take Photo or Upload</button>
+        <button id="takePhotoBtn" class="camera-button">Take Photo</button>
         <img id="previewImage" style="max-width: 100%; margin-top: 15px; display: none;">
+    </div>
+
+    <div class="button-container">
+        <button id="extractMetadataBtn" disabled>Extract Metadata</button>
     </div>
     
     <div id="metadataDisplay">No metadata available yet.</div>
@@ -131,10 +124,8 @@
         
         async function initApp() {
             // Get UI elements
-            const videoElement = document.getElementById('videoElement');
-            const canvasElement = document.getElementById('canvasElement');
             const photoInput = document.getElementById('photoInput');
-            const uploadPhotoBtn = document.getElementById('uploadPhotoBtn');
+            const takePhotoBtn = document.getElementById('takePhotoBtn');
             const previewImage = document.getElementById('previewImage');
             const extractMetadataBtn = document.getElementById('extractMetadataBtn');
             const metadataDisplay = document.getElementById('metadataDisplay');
@@ -152,7 +143,6 @@
             
             // Create Conversion instance
             const conversion = new Conversion();
-            conversion.initCamera(videoElement, canvasElement);
             
             // Load cameras from JSON
             try {
@@ -188,7 +178,7 @@
             }
             
             // Add this event listener:
-            uploadPhotoBtn.addEventListener('click', () => {
+            takePhotoBtn.addEventListener('click', () => {
                 photoInput.click();
             });
             

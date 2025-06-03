@@ -83,8 +83,13 @@ class Conversion {
                             },
                             image: {
                                 timestamp: new Date().toISOString(),
-                                width: this.canvasElement.width,
-                                height: this.canvasElement.height
+                                width: 0,  // Or any default value
+                                height: 0  // Or any default value
+                            },
+                            camera: {
+                                exposureTime: null,
+                                fNumber: null,
+                                iso: null
                             }
                         };
                         resolve(this.metadata);

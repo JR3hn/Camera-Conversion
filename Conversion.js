@@ -112,29 +112,62 @@ class Conversion {
      */
     processExifData(exifData) {
         console.log('Processing EXIF data:', exifData);
+        console.log('Available tags:', Object.keys(exifData));
         
-        // Extract and format the aperture value
         let fNumber = null;
         if (exifData.FNumber) {
+            console.log('FNumber data:', exifData.FNumber);
             if (Array.isArray(exifData.FNumber.value) && exifData.FNumber.value.length === 2) {
                 fNumber = exifData.FNumber.value[0] / exifData.FNumber.value[1];
             } else {
                 fNumber = exifData.FNumber.description || exifData.FNumber.value;
             }
+        } else if (exifData.ApertureValue) {
+            // Try alternative tag
+            console.log('Using ApertureValue instead:', exifData.ApertureValue);
+            if (Array.isArray(exifData.ApertureValue.value) && exifData.ApertureValue.value.length === 2) {
+                // ApertureValue is usually in APEX units, convert to f-number
+                const apex = exifData.ApertureValue.value[0] / exifData.ApertureValue.value[1];
+                fNumber = Math.pow(2, apex/2).toFixed(1);
+            } else {
+                fNumber = exifData.ApertureValue.description;
+            }
         }
-        
+
         // Extract and format the exposure time
         let exposureTime = null;
         if (exifData.ExposureTime) {
+            console.log('ExposureTime data:', exifData.ExposureTime);
             if (typeof exifData.ExposureTime.description === 'string') {
                 exposureTime = exifData.ExposureTime.description;
             } else if (Array.isArray(exifData.ExposureTime.value) && exifData.ExposureTime.value.length === 2) {
                 const [numerator, denominator] = exifData.ExposureTime.value;
                 exposureTime = `${numerator}/${denominator}`;
             }
+        } else if (exifData.ShutterSpeedValue) {
+            // Try alternative tag
+            console.log('Using ShutterSpeedValue instead:', exifData.ShutterSpeedValue);
+            if (Array.isArray(exifData.ShutterSpeedValue.value)) {
+                const apex = exifData.ShutterSpeedValue.value[0] / exifData.ShutterSpeedValue.value[1];
+                const denominator = Math.pow(2, apex);
+                exposureTime = `1/${Math.round(denominator)}`;
+            } else {
+                exposureTime = exifData.ShutterSpeedValue.description;
+            }
         }
-        
-        return {
+
+        // Extract ISO
+        let iso = null;
+        if (exifData.ISOSpeedRatings) {
+            console.log('ISO data:', exifData.ISOSpeedRatings);
+            iso = exifData.ISOSpeedRatings.value;
+        } else if (exifData.PhotographicSensitivity) {
+            // Try alternative tag
+            console.log('Using PhotographicSensitivity instead:', exifData.PhotographicSensitivity);
+            iso = exifData.PhotographicSensitivity.value;
+        }
+
+         return {
             device: {
                 make: this.getExifValue(exifData, 'Make'),
                 model: this.getExifValue(exifData, 'Model'),
@@ -151,7 +184,7 @@ class Conversion {
             camera: {
                 exposureTime: exposureTime,
                 fNumber: fNumber,
-                iso: this.getExifValue(exifData, 'ISOSpeedRatings')
+                iso: iso
             }
         };
     }

@@ -1,2 +1,369 @@
 <!DOCTYPE html>
 <html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ND-filter calculator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .camera-container {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        #videoElement {
+            width: 100%;
+            background-color: #333;
+        }
+        #canvasElement {
+            display: none;
+        }
+        .button-container, .control-container {
+            margin: 10px 0;
+        }
+        button, select {
+            padding: 10px 15px;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+        #metadataDisplay {
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+            white-space: pre-wrap;
+        }
+        .camera-specs {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f0f8ff;
+        }
+        .conversion-settings, .conversion-result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f5f5f5;
+        }
+        .settings-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        label {
+            display: inline-block;
+            width: 150px;
+            font-weight: bold;
+        }
+        .result-highlight {
+            font-size: 1.2em;
+            font-weight: bold;
+            background-color: #e6ffe6;
+            padding: 5px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <h1>ND-filter calculator</h1>
+    
+    <div class="control-container">
+        <label for="cameraSelect">Select Camera:</label>
+        <select id="cameraSelect">
+            <option value="" disabled selected>Loading cameras...</option>
+        </select>
+    </div>
+    
+    <div class="camera-specs" id="cameraSpecs">
+        <h3>Camera Specifications</h3>
+        <p>Please select a camera from the dropdown menu</p>
+    </div>
+    
+    <div class="camera-container">
+        <video id="videoElement" autoplay playsinline></video>
+        <canvas id="canvasElement"></canvas>
+    </div>
+    
+    <div class="button-container">
+        <button id="startCameraBtn">Start Camera</button>
+        <button id="capturePhotoBtn" disabled>Capture Photo</button>
+        <button id="extractMetadataBtn" disabled>Extract Metadata</button>
+    </div>
+    
+    <div id="metadataDisplay">No metadata available yet.</div>
+    
+    <div class="conversion-settings" id="conversionSettings" style="display: none;">
+        <h3>Target Camera Settings</h3>
+        <div class="settings-row">
+            <label for="targetAperture">Aperture:</label>
+            <select id="targetAperture"></select>
+        </div>
+        <div class="settings-row">
+            <label for="targetShutter">Shutter Speed:</label>
+            <select id="targetShutter"></select>
+        </div>
+        <div class="settings-row">
+            <label for="targetIso">ISO:</label>
+            <select id="targetIso"></select>
+        </div>
+        <button id="calculateBtn">Calculate Exposure</button>
+    </div>
+    
+    <div class="conversion-result" id="conversionResult" style="display: none;">
+        <h3>Exposure Conversion Result</h3>
+        <div id="resultContent"></div>
+    </div>
+    
+    <!-- ExifReader library for metadata extraction -->
+    <script src="https://cdn.jsdelivr.net/npm/exifreader/dist/exif-reader.min.js"></script>
+    
+    <!-- Your Conversion class -->
+    <script src="Conversion.js"></script>
+    
+    <!-- App initialization -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize the application
+            initApp();
+        });
+        
+        async function initApp() {
+            // Get UI elements
+            const videoElement = document.getElementById('videoElement');
+            const canvasElement = document.getElementById('canvasElement');
+            const startCameraBtn = document.getElementById('startCameraBtn');
+            const capturePhotoBtn = document.getElementById('capturePhotoBtn');
+            const extractMetadataBtn = document.getElementById('extractMetadataBtn');
+            const metadataDisplay = document.getElementById('metadataDisplay');
+            const cameraSelect = document.getElementById('cameraSelect');
+            const cameraSpecs = document.getElementById('cameraSpecs');
+            const conversionSettings = document.getElementById('conversionSettings');
+            const conversionResult = document.getElementById('conversionResult');
+            const resultContent = document.getElementById('resultContent');
+            
+            // Target setting elements
+            const targetAperture = document.getElementById('targetAperture');
+            const targetShutter = document.getElementById('targetShutter');
+            const targetIso = document.getElementById('targetIso');
+            const calculateBtn = document.getElementById('calculateBtn');
+            
+            // Create Conversion instance
+            const conversion = new Conversion();
+            conversion.initCamera(videoElement, canvasElement);
+            
+            // Load cameras from JSON
+            try {
+                const cameras = await conversion.loadCameras();
+                
+                // Clear loading option
+                cameraSelect.innerHTML = '';
+                
+                // Add options for each camera
+                cameras.forEach((camera, index) => {
+                    const option = document.createElement('option');
+                    option.value = index;
+                    option.textContent = `${camera.brand} ${camera.model}`;
+                    cameraSelect.appendChild(option);
+                });
+
+                if (cameras.length > 0) {
+                    displayCameraSpecs(conversion.selectedCamera, cameraSpecs);
+                    populateTargetSettings(conversion.selectedCamera);
+                }
+                
+                // Handle camera selection change
+                cameraSelect.addEventListener('change', () => {
+                    const selectedIndex = parseInt(cameraSelect.value, 10);
+                    const selectedCamera = conversion.selectCamera(selectedIndex);
+                    displayCameraSpecs(selectedCamera, cameraSpecs);
+                    populateTargetSettings(selectedCamera);
+                });
+                
+            } catch (error) {
+                console.error('Failed to load cameras:', error);
+                cameraSelect.innerHTML = '<option value="" disabled selected>Error loading cameras</option>';
+            }
+            
+            // Set up button event listeners
+            startCameraBtn.addEventListener('click', async () => {
+                try {
+                    await conversion.startCamera();
+                    startCameraBtn.disabled = true;
+                    capturePhotoBtn.disabled = false;
+                } catch (error) {
+                    alert('Error starting camera: ' + error.message);
+                }
+            });
+            
+            capturePhotoBtn.addEventListener('click', async () => {
+                try {
+                    await conversion.capturePhoto();
+                    extractMetadataBtn.disabled = false;
+                    
+                    // Display the captured image
+                    const imgURL = URL.createObjectURL(conversion.photoData);
+                    const img = document.createElement('img');
+                    img.src = imgURL;
+                    img.style.width = '100%';
+                    
+                    // Clear previous image if any
+                    while (metadataDisplay.firstChild) {
+                        metadataDisplay.removeChild(metadataDisplay.firstChild);
+                    }
+                    
+                    metadataDisplay.appendChild(img);
+                } catch (error) {
+                    alert('Error capturing photo: ' + error.message);
+                }
+            });
+            
+            extractMetadataBtn.addEventListener('click', async () => {
+                try {
+                    const metadata = await conversion.extractMetadata();
+                    
+                    // Format and display metadata
+                    const formattedMetadata = JSON.stringify(metadata, null, 2);
+                    metadataDisplay.innerHTML = '<pre>' + formattedMetadata + '</pre>';
+                    
+                    // Show conversion settings once metadata is available
+                    conversionSettings.style.display = 'block';
+                } catch (error) {
+                    alert('Error extracting metadata: ' + error.message);
+                }
+            });
+            
+            // Calculate button event listener
+            calculateBtn.addEventListener('click', () => {
+                try {
+                    // Get selected target values
+                    const aperture = targetAperture.value;
+                    const shutter = targetShutter.value;
+                    const iso = parseInt(targetIso.value, 10);
+                    
+                    // Calculate conversion
+                    const result = conversion.convertFromMetadata(aperture, shutter, iso);
+                    
+                    // Display result
+                    let resultHTML = `
+                        <p><strong>Original Settings:</strong> f/${result.original.fNumber}, ${formatShutterSpeed(result.original.exposureTime)}, ISO ${result.original.iso}</p>
+                        <p><strong>Target Settings:</strong> f/${result.target.fNumber}, ${formatShutterSpeed(result.target.exposureTime)}, ISO ${result.target.iso}</p>
+                        <p><strong>Exposure Difference:</strong> <span class="result-highlight">${result.stops} stops</span></p>
+                    `;
+                    
+                    // Add recommendations based on stops
+                    const absStops = Math.abs(parseFloat(result.stops));
+                    let ndRecommendation = '';
+                    
+                    if (result.stops < 0) {
+                        // Need ND filter - less light
+                        if (absStops <= 1) ndRecommendation = 'ND2 (1-stop) filter';
+                        else if (absStops <= 2) ndRecommendation = 'ND4 (2-stop) filter';
+                        else if (absStops <= 3) ndRecommendation = 'ND8 (3-stop) filter';
+                        else if (absStops <= 4) ndRecommendation = 'ND16 (4-stop) filter';
+                        else if (absStops <= 5) ndRecommendation = 'ND32 (5-stop) filter';
+                        else if (absStops <= 6) ndRecommendation = 'ND64 (6-stop) filter';
+                        else if (absStops <= 10) ndRecommendation = 'ND1000 (10-stop) filter';
+                        else ndRecommendation = 'ND1000+ (10+ stop) filter';
+                        
+                        resultHTML += `<p><strong>Recommended Filter:</strong> <span class="result-highlight">${ndRecommendation}</span></p>`;
+                    } else if (result.stops > 0) {
+                        // Need more light
+                        resultHTML += `<p><strong>Adjustment Needed:</strong> <span class="result-highlight">Increase exposure by ${absStops.toFixed(1)} stops</span></p>`;
+                    } else {
+                        resultHTML += `<p><strong>No adjustment needed</strong> - settings are equivalent</p>`;
+                    }
+                    
+                    resultContent.innerHTML = resultHTML;
+                    conversionResult.style.display = 'block';
+                    
+                } catch (error) {
+                    alert('Error calculating conversion: ' + error.message);
+                }
+            });
+            
+            // Helper function to populate target settings dropdowns
+            function populateTargetSettings(camera) {
+                if (!camera) return;
+                
+                // Clear previous options
+                targetAperture.innerHTML = '';
+                targetShutter.innerHTML = '';
+                targetIso.innerHTML = '';
+                
+                // Add aperture options
+                camera.aperture.values.forEach(value => {
+                    const option = document.createElement('option');
+                    option.value = value;
+                    option.textContent = `f/${value}`;
+                    targetAperture.appendChild(option);
+                });
+                
+                // Add shutter speed options
+                camera.shutterSpeed.values.forEach(value => {
+                    const option = document.createElement('option');
+                    option.value = value;
+                    option.textContent = formatShutterSpeed(value);
+                    targetShutter.appendChild(option);
+                });
+                
+                // Add ISO options
+                camera.iso.values.forEach(value => {
+                    const option = document.createElement('option');
+                    option.value = value;
+                    option.textContent = value;
+                    targetIso.appendChild(option);
+                });
+            }
+            
+            // Helper function to display camera specifications
+            function displayCameraSpecs(camera, element) {
+                if (!camera) {
+                    element.innerHTML = '<p>No camera selected</p>';
+                    return;
+                }
+                
+                let html = `
+                    <h3>${camera.brand} ${camera.model}</h3>
+                    <p><label>Type:</label> ${camera.type}</p>
+                    <p><label>Sensor:</label> ${camera.sensor.type}, ${camera.sensor.size}, ${camera.sensor.resolution}</p>
+                    <p><label>ISO Range:</label> ${camera.iso.min} - ${camera.iso.max}</p>
+                    <p><label>Shutter Speed:</label> ${camera.shutterSpeed.fastest} - ${camera.shutterSpeed.slowest}</p>
+                `;
+                
+                if (camera.aperture.fixed) {
+                    html += `<p><label>Aperture:</label> Fixed at f/${camera.aperture.fixed}</p>`;
+                } else {
+                    html += `<p><label>Aperture Range:</label> f/${camera.aperture.min} - f/${camera.aperture.max}</p>`;
+                }
+                
+                element.innerHTML = html;
+            }
+            
+            // Helper function to format shutter speed for display
+            function formatShutterSpeed(speed) {
+                if (typeof speed === 'number') {
+                    if (speed >= 1) {
+                        return `${speed}s`;
+                    } else {
+                        return `1/${Math.round(1/speed)}s`;
+                    }
+                }
+                
+                // If already a string like "1/500"
+                if (typeof speed === 'string') {
+                    return speed.includes('/') ? `${speed}s` : `${speed}s`;
+                }
+                
+                return speed;
+            }
+        }
+    </script>
+</body>
+</html>

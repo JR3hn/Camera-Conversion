@@ -76,8 +76,8 @@
     </div>
     
     <div class="photo-container">
-        <input type="file" id="photoInput" accept="image/*" capture="environment" style="display: none;">
-        <button id="takePhotoBtn" class="camera-button">Take Photo</button>
+        <input type="file" id="photoInput" accept="image/*" style="display: none;">
+        <button id="uploadPhotoBtn" class="camera-button">Upload Photo</button>
         <img id="previewImage" style="max-width: 100%; margin-top: 15px; display: none;">
     </div>
 
@@ -125,7 +125,7 @@
         async function initApp() {
             // Get UI elements
             const photoInput = document.getElementById('photoInput');
-            const takePhotoBtn = document.getElementById('takePhotoBtn');
+            const uploadPhotoBtn = document.getElementById('uploadPhotoBtn');
             const previewImage = document.getElementById('previewImage');
             const extractMetadataBtn = document.getElementById('extractMetadataBtn');
             const metadataDisplay = document.getElementById('metadataDisplay');
@@ -178,7 +178,7 @@
             }
             
             // Add this event listener:
-            takePhotoBtn.addEventListener('click', () => {
+            uploadPhotoBtn.addEventListener('click', () => {
                 photoInput.click();
             });
             
